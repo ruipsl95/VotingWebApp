@@ -1,0 +1,155 @@
+@page "/voting"
+@using VotingSystem
+@using VotingSystem.Voting
+@using Grpc.Core
+@inject VoterRegistrationService.VoterRegistrationServiceClient RegistrationClient
+@inject VotingService.VotingServiceClient VotingClient
+
+<PageTitle>Sistema de Votação</PageTitle>
+
+<div class="container" style="max-width: 600px; margin-top: 20px;">
+    <h1 class="text-primary">Sistema de Votação Online</h1>
+    <hr />
+
+    <div class="card mb-4">
+        <div class="card-header bg-light">1. Obter Credencial (Registo)</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label>Número do Cartão de Cidadão:</label>
+                <input @bind="ccNumber" class="form-control" placeholder="Ex: 123456789" />
+            </div>
+            <button class="btn btn-primary" @onclick="ObterCredencial">Obter Credencial</button>
+            
+            @if (!string.IsNullOrEmpty(registoMsg))
+            {
+                <div class="alert alert-info mt-2">@registoMsg</div>
+            }
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-light">2. Votar na Eleição</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label>A sua Credencial:</label>
+                <input @bind="credencial" class="form-control" readonly style="background-color: #e9ecef;" />
+            </div>
+
+            <button class="btn btn-secondary mb-3" @onclick="CarregarCandidatos">🔄 Carregar Candidatos</button>
+
+            @if (candidatos.Any())
+            {
+                <div class="mb-3">
+                    <label>Escolha o Candidato:</label>
+                    <select @bind="candidatoSelecionadoId" class="form-select">
+                        <option value="0">-- Selecione --</option>
+                        @foreach (var c in candidatos)
+                        {
+                            <option value="@c.Id">@c.Id - @c.Name</option>
+                        }
+                    </select>
+                </div>
+                <button class="btn btn-success w-100" @onclick="Votar">VOTAR AGORA</button>
+            }
+            
+            @if (!string.IsNullOrEmpty(votoMsg))
+            {
+                <div class="@votoCor mt-3 p-2 rounded text-white">@votoMsg</div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    // Variáveis de Estado
+    private string ccNumber = "";
+    private string registoMsg = "";
+    private string credencial = "";
+    
+    private List<Candidate> candidatos = new List<Candidate>();
+    private int candidatoSelecionadoId = 0;
+    private string votoMsg = "";
+    private string votoCor = "bg-secondary";
+
+    // Lógica: Obter Credencial
+    private async Task ObterCredencial()
+    {
+        registoMsg = "A contactar servidor...";
+        try
+        {
+            var reply = await RegistrationClient.IssueVotingCredentialAsync(
+                new VoterRequest { CitizenCardNumber = ccNumber },
+                deadline: DateTime.UtcNow.AddSeconds(3));
+
+            if (reply.IsEligible)
+            {
+                credencial = reply.VotingCredential;
+                registoMsg = "Credencial Recebida!";
+            }
+            else
+            {
+                registoMsg = "Cidadão não elegível.";
+            }
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.Unimplemented)
+        {
+            registoMsg = "Servidor de Registo indisponível. A usar credencial de teste.";
+            credencial = "CRED-ABC-123";
+        }
+        catch (Exception ex)
+        {
+            registoMsg = $"Erro: {ex.Message}";
+        }
+    }
+
+    // Lógica: Listar Candidatos
+    private async Task CarregarCandidatos()
+    {
+        try
+        {
+            var reply = await VotingClient.GetCandidatesAsync(new GetCandidatesRequest());
+            candidatos = reply.Candidates.ToList();
+        }
+        catch (Exception ex)
+        {
+            votoMsg = $"Erro ao carregar lista: {ex.Message}";
+            votoCor = "bg-danger";
+        }
+    }
+
+    // Lógica: Votar
+    private async Task Votar()
+    {
+        if (candidatoSelecionadoId == 0) 
+        {
+            votoMsg = "Selecione um candidato!";
+            votoCor = "bg-warning text-dark";
+            return;
+        }
+
+        try
+        {
+            var reply = await VotingClient.VoteAsync(new VoteRequest 
+            { 
+                VotingCredential = credencial,
+                CandidateId = candidatoSelecionadoId
+            });
+
+            if (reply.Success)
+            {
+                votoMsg = $"SUCESSO: {reply.Message}";
+                votoCor = "bg-success";
+            }
+            else
+            {
+                votoMsg = $"Recusado: {reply.Message}";
+                votoCor = "bg-danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            votoMsg = $"Erro: {ex.Message}";
+            votoCor = "bg-danger";
+        }
+    }
+}

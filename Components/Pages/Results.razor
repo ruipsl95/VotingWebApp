@@ -1,0 +1,71 @@
+@page "/results"
+@using VotingSystem
+@using VotingSystem.Voting
+@using Grpc.Core
+@inject VotingService.VotingServiceClient VotingClient
+
+<PageTitle>Resultados Votação</PageTitle>
+
+<div class="container" style="max-width: 600px; margin-top: 20px;">
+    <h1 class="text-primary">Resultados Votação</h1>
+    <hr />
+    <div class="card">
+
+        <div class="card-body">
+
+            <button class="btn btn-info mt-3" @onclick="CarregarResultados">Ver Resultados</button>
+
+            @if (resultados.Any())
+            {
+                <table class="table table-striped mt-3">
+                    <thead>
+                        <tr>
+                            <th>Candidato</th>
+                            <th>Votos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in resultados)
+                        {
+                            <tr>
+                                <td>@r.Name</td>
+                                <td><strong>@r.Votes</strong></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            @if (!string.IsNullOrEmpty(votoMsg))
+            {
+                <div class="@votoCor mt-3 p-2 rounded text-white">@votoMsg</div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<CandidateResult> resultados = new List<CandidateResult>();
+    private string votoMsg = "";
+    private string votoCor = "bg-secondary";
+
+
+
+    private async Task CarregarResultados()
+    {
+        try
+        {
+            var reply = await VotingClient.GetResultsAsync(new GetResultsRequest());
+
+            resultados = reply.Results.ToList();
+
+            votoMsg = "Resultados atualizados com sucesso!";
+            votoCor = "bg-info text-white";
+        }
+        catch (Exception ex)
+        {
+            votoMsg = $"Erro ao carregar resultados: {ex.Message}";
+            votoCor = "bg-danger text-white";
+        }
+    }
+}
