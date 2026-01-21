@@ -44,7 +44,7 @@ Siga os passos abaixo para clonar e correr a aplicação no seu computador (Wind
 Abra o terminal e execute:
 
 ```bash
-git clone [[https://github.com/SEU_UTILIZADOR/SEU_REPOSITORIO.git](https://github.com/ruipsl95/VotingWebApp/)]([https://github.com/SEU_UTILIZADOR/SEU_REPOSITORIO.git](https://github.com/ruipsl95/VotingWebApp/))
+git clone [[[https://github.com/ruipsl95/VotingWebApp/](https://github.com/ruipsl95/VotingWebApp/)]
 cd VotingWebApp
 ```
 
